@@ -1,13 +1,13 @@
-#coding=utf8
+# coding=utf8
 import os, json
-PAD = '<pad>'
-UNK = '<unk>'
-BOS = '<s>'
-EOS = '</s>'
+
+PAD = "<pad>"
+UNK = "<unk>"
+BOS = "<s>"
+EOS = "</s>"
 
 
-class Vocab():
-
+class Vocab:
     def __init__(self, padding=False, unk=False, min_freq=1, filepath=None):
         super(Vocab, self).__init__()
         self.word2id = dict()
@@ -23,12 +23,12 @@ class Vocab():
             self.from_train(filepath, min_freq=min_freq)
 
     def from_train(self, filepath, min_freq=1):
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             trains = json.load(f)
         word_freq = {}
         for data in trains:
             for utt in data:
-                text = utt['manual_transcript']
+                text = utt["manual_transcript"]
                 for char in text:
                     word_freq[char] = word_freq.get(char, 0) + 1
         for word in word_freq:
@@ -47,27 +47,26 @@ class Vocab():
         return self.word2id.get(key, self.word2id[UNK])
 
 
-class LabelVocab():
-
+class LabelVocab:
     def __init__(self, root):
         self.tag2idx, self.idx2tag = {}, {}
 
         self.tag2idx[PAD] = 0
         self.idx2tag[0] = PAD
-        self.tag2idx['O'] = 1
-        self.idx2tag[1] = 'O'
+        self.tag2idx["O"] = 1
+        self.idx2tag[1] = "O"
         self.from_filepath(root)
 
     def from_filepath(self, root):
-        ontology = json.load(open(os.path.join(root, 'ontology.json'), 'r'))
-        acts = ontology['acts']
-        slots = ontology['slots']
+        ontology = json.load(open(os.path.join(root, "ontology.json"), "r"))
+        acts = ontology["acts"]
+        slots = ontology["slots"]
 
         for act in acts:
             for slot in slots:
-                for bi in ['B', 'I']:
+                for bi in ["B", "I"]:
                     idx = len(self.tag2idx)
-                    tag = f'{bi}-{act}-{slot}'
+                    tag = f"{bi}-{act}-{slot}"
                     self.tag2idx[tag], self.idx2tag[idx] = idx, tag
 
     def convert_tag_to_idx(self, tag):

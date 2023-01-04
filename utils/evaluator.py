@@ -1,11 +1,11 @@
-#coding=utf8
+# coding=utf8
 
-class Evaluator():
 
+class Evaluator:
     def acc(self, predictions, labels):
         metric_dicts = {}
-        metric_dicts['acc'] = self.accuracy(predictions, labels)
-        metric_dicts['fscore'] = self.fscore(predictions, labels)
+        metric_dicts["acc"] = self.accuracy(predictions, labels)
+        metric_dicts["fscore"] = self.fscore(predictions, labels)
         return metric_dicts
 
     @staticmethod
@@ -34,4 +34,4 @@ class Evaluator():
             fscore = 0
         else:
             fscore = 2 * precision * recall / (precision + recall)
-        return {'precision': 100 * precision, 'recall': 100 * recall, 'fscore': 100 * fscore}
+        return {"precision": 100 * precision, "recall": 100 * recall, "fscore": 100 * fscore}

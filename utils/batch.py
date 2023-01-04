@@ -1,8 +1,8 @@
-#-*- coding:utf-8 -*-
+# -*- coding:utf-8 -*-
 import torch
 
 
-def from_example_list(args, ex_list, device='cpu', train=True):
+def from_example_list(args, ex_list, device="cpu", train=True):
     ex_list = sorted(ex_list, key=lambda x: len(x.input_idx), reverse=True)
     batch = Batch(ex_list, device)
     pad_idx = args.pad_idx
@@ -33,8 +33,7 @@ def from_example_list(args, ex_list, device='cpu', train=True):
     return batch
 
 
-class Batch():
-
+class Batch:
     def __init__(self, examples, device):
         super(Batch, self).__init__()
 

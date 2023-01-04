@@ -1,4 +1,4 @@
-#coding=utf8
+# coding=utf8
 import random, torch
 import numpy as np
 
@@ -17,6 +17,6 @@ def set_torch_device(deviceId):
     else:
         assert torch.cuda.device_count() >= deviceId + 1
         device = torch.device("cuda:%d" % (deviceId))
-        print('Use GPU with index %d' % (deviceId))
+        print("Use GPU with index %d" % (deviceId))
         torch.backends.cudnn.enabled = False
     return device
