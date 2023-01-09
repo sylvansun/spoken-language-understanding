@@ -24,15 +24,15 @@ start_time = time.time()
 train_path = os.path.join(args.dataroot, "train.json")
 dev_path = os.path.join(args.dataroot, "development.json")
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
-train_dataset = Example.load_dataset(train_path)
+train_dataset = Example.load_dataset(train_path) # a list (length = 5119) with utils.example.Example object
 dev_dataset = Example.load_dataset(dev_path)
 print("Load dataset and database finished, cost %.4fs ..." % (time.time() - start_time))
 print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)))
 
-args.vocab_size = Example.word_vocab.vocab_size
-args.pad_idx = Example.word_vocab[PAD]
-args.num_tags = Example.label_vocab.num_tags
-args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
+args.vocab_size = Example.word_vocab.vocab_size #default 1741
+args.pad_idx = Example.word_vocab[PAD] #default 0
+args.num_tags = Example.label_vocab.num_tags #default 74
+args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD) #default 0
 
 
 model = SLUTagging(args).to(device)
