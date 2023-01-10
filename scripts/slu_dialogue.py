@@ -1,5 +1,6 @@
 # coding=utf8
 import sys, os, time, gc, json
+import numpy as np
 from torch.optim import Adam
 
 install_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -25,11 +26,6 @@ train_path = os.path.join(args.dataroot, "train.json")
 dev_path = os.path.join(args.dataroot, "development.json")
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
 train_dataset = Example.load_dataset(train_path) # a list (length = 5119) with utils.example.Example object
-print(len(train_dataset))
-# print(train_dataset[2000].ex)
-# print(train_dataset[2000].did)
-# print(train_dataset[2001].ex)
-# print(train_dataset[2001].did)
 dev_dataset = Example.load_dataset(dev_path)
 print("Load dataset and database finished, cost %.4fs ..." % (time.time() - start_time))
 print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)))
@@ -41,8 +37,8 @@ args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD) #default 0
 
 
 N_ensemble = 4
-batches = [[] for i in range(N_ensemble)]
-models = [SLUTagging(args).to(device) for i in range(N_ensemble)]
+batches = [[] for _ in range(N_ensemble)]
+models = [SLUTagging(args).to(device) for _ in range(N_ensemble)]
 Example.word2vec.load_embeddings(models[0].word_embed, Example.word_vocab, device=device)
 
 if args.testing:
@@ -119,17 +115,22 @@ if not args.testing:
         count = 0
         for j in range(0, nsamples-step_size, step_size):
             cur_dataset = [train_dataset[k] for k in train_index[j : j + step_size]]
-            datas = [[] for item in range(N_ensemble)]
+            datas = [[] for _ in range(N_ensemble)]
             for model_id in range(N_ensemble):
                 datas[model_id] += [cur_dataset[l * N_ensemble + model_id] for l in range(int(step_size / N_ensemble))]
             batches = [from_example_list(args, datas[l], device, train=True) for l in range(N_ensemble)]
+            losses = [[] for _ in range(N_ensemble)]
             for k in range(N_ensemble):
                 output, loss = models[k](batches[k])
-                # loss += loss_old
+                losses[k] = loss
+                if k:
+                    loss = loss/2 + losses[k-1]/2
+                    losses[k] = loss
                 epoch_loss += loss.item()
-                optimizers[k].zero_grad()
-                loss.backward()
+            loss.backward()
+            for k in range(N_ensemble):
                 optimizers[k].step()
+                optimizers[k].zero_grad()
                 
             count += 1
         print(
