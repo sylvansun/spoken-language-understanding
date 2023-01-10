@@ -21,18 +21,18 @@ class SLUTagging(nn.Module):
         self.output_layer = TaggingFNNDecoder(config.hidden_size, config.num_tags, config.tag_pad_idx)
 
     def forward(self, batch):
-        tag_ids = batch.tag_ids
-        tag_mask = batch.tag_mask
-        input_ids = batch.input_ids
-        lengths = batch.lengths
+        tag_ids = batch.tag_ids # (tensor) bs * 26, where 26 is the longest sequence length
+        tag_mask = batch.tag_mask # (tensor) bs * 26
+        input_ids = batch.input_ids # (tensor) bs *26
+        lengths = batch.lengths # (list) len = bs
 
-        embed = self.word_embed(input_ids)
+        embed = self.word_embed(input_ids) # (tensor) bs * 26 * 768
         packed_inputs = rnn_utils.pack_padded_sequence(embed, lengths, batch_first=True, enforce_sorted=True)
         packed_rnn_out, h_t_c_t = self.rnn(packed_inputs)  # bsize x seqlen x dim
         rnn_out, unpacked_len = rnn_utils.pad_packed_sequence(packed_rnn_out, batch_first=True)
-        hiddens = self.dropout_layer(rnn_out)
-        tag_output = self.output_layer(hiddens, tag_mask, tag_ids)
-
+        # rnn_out is shaped like bs * 26 * hidden_size
+        hiddens = self.dropout_layer(rnn_out) # bs * 26 * hidden_size
+        tag_output = self.output_layer(hiddens, tag_mask, tag_ids) # 2-tuple of length batchsize
         return tag_output
 
     def decode(self, label_vocab, batch):
