@@ -170,3 +170,4 @@ test.png
 # MAC_OS
 .DS_Store
 word2vec-768.txt
+data

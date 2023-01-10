@@ -10,7 +10,7 @@ from utils.initialization import *
 from utils.example import Example
 from utils.batch import from_example_list
 from utils.vocab import PAD
-from model.slu_baseline_tagging import SLUTagging
+from model.slu_transformer_tagging import SLUTagging
 
 # initialization params, output path, logger, random seed and torch.device
 args = init_args(sys.argv[1:])
