@@ -23,12 +23,12 @@ class SLUTagging(nn.Module):
             bidirectional=True,
             batch_first=True,
         )
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=config.embed_size, nhead=8, batch_first=True)
-        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=16)
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=config.embed_size, nhead=config.num_head, batch_first=True)
+        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=config.num_t_layer)
         self.tokenizer = BertTokenizer.from_pretrained("bert-base-chinese")
         self.bert = BertModel.from_pretrained("bert-base-chinese")
         self.dropout_layer = nn.Dropout(p=config.dropout)
-        self.output_layer = TaggingFNNDecoder(config.hidden_size * 2, config.num_tags, config.tag_pad_idx)
+        self.output_layer = TaggingFNNDecoder(config.hidden_size, config.num_tags, config.tag_pad_idx)
 
     def forward(self, batch):
         tag_ids = batch.tag_ids  # (tensor) bs * S, where S is the longest sequence length
@@ -50,7 +50,7 @@ class SLUTagging(nn.Module):
         packed_inputs = rnn_utils.pack_padded_sequence(transformer_out, lengths, batch_first=True, enforce_sorted=True)
         packed_rnn_out, h_t_c_t = self.rnn(packed_inputs)  # bsize x seqlen x dim
         rnn_out, unpacked_len = rnn_utils.pad_packed_sequence(packed_rnn_out, batch_first=True)  # B * S * hidden_size
-        out = torch.cat([rnn_out, bert_out], dim=-1)
+        out = rnn_out + transformer_out
         hiddens = self.dropout_layer(out)  # bs * S * hidden_size
         tag_output = self.output_layer(hiddens, tag_mask, tag_ids)  # 2-tuple of length batchsize
         return tag_output

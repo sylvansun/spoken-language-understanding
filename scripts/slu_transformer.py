@@ -24,15 +24,15 @@ start_time = time.time()
 train_path = os.path.join(args.dataroot, "train.json")
 dev_path = os.path.join(args.dataroot, "development.json")
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
-train_dataset = Example.load_dataset(train_path) # a list (length = 5119) with utils.example.Example object
+train_dataset = Example.load_dataset(train_path)  # a list (length = 5119) with utils.example.Example object
 dev_dataset = Example.load_dataset(dev_path)
 print("Load dataset and database finished, cost %.4fs ..." % (time.time() - start_time))
 print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)))
 
-args.vocab_size = Example.word_vocab.vocab_size #default 1741
-args.pad_idx = Example.word_vocab[PAD] #default 0
-args.num_tags = Example.label_vocab.num_tags #default 74
-args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD) #default 0
+args.vocab_size = Example.word_vocab.vocab_size  # default 1741
+args.pad_idx = Example.word_vocab[PAD]  # default 0
+args.num_tags = Example.label_vocab.num_tags  # default 74
+args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)  # default 0
 
 
 model = SLUTagging(args).to(device)
@@ -142,14 +142,15 @@ if not args.testing:
                 dev_fscore,
                 i,
             )
-            torch.save(
-                {
-                    "epoch": i,
-                    "model": model.state_dict(),
-                    "optim": optimizer.state_dict(),
-                },
-                open(args.model_path, "wb"),
-            )
+            if not args.debug:
+                torch.save(
+                    {
+                        "epoch": i,
+                        "model": model.state_dict(),
+                        "optim": optimizer.state_dict(),
+                    },
+                    open(args.model_path, "wb"),
+                )
             print(
                 "NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)"
                 % (i, dev_loss, dev_acc, dev_fscore["precision"], dev_fscore["recall"], dev_fscore["fscore"])

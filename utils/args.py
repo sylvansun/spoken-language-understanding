@@ -19,6 +19,8 @@ def add_argument_base(arg_parser):
         "--device", type=int, default=-1, help="Use which device: -1 -> cpu ; the index of gpu o.w."
     )
     arg_parser.add_argument("--testing", action="store_true", help="training or evaluation mode")
+    arg_parser.add_argument("--model_path", default="model.bin", type=str, help="path of saved model")
+    arg_parser.add_argument("--debug", action="store_true", help="debug mode")
     #### Training Hyperparams ####
     arg_parser.add_argument("-b", "--batch_size", default=32, type=int, help="Batch size")
     arg_parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
@@ -29,5 +31,7 @@ def add_argument_base(arg_parser):
     arg_parser.add_argument("--embed_size", default=768, type=int, help="Size of word embeddings")
     arg_parser.add_argument("--hidden_size", default=512, type=int, help="hidden size")
     arg_parser.add_argument("--num_layer", default=2, type=int, help="number of layer")
-    arg_parser.add_argument("--model_path", default="model.bin", type=str, help="path of saved model")
+    #### Transformer Hyperparams ####
+    arg_parser.add_argument("--num_head", default=8, type=int, help="number of head")
+    arg_parser.add_argument("--num_t_layer", default=16, type=int, help="number of TransformerEncoder layer")
     return arg_parser
