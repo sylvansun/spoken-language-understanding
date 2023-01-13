@@ -34,4 +34,6 @@ def add_argument_base(arg_parser):
     #### Transformer Hyperparams ####
     arg_parser.add_argument("--num_head", default=8, type=int, help="number of head")
     arg_parser.add_argument("--num_t_layer", default=16, type=int, help="number of TransformerEncoder layer")
+    arg_parser.add_argument('--bidir', default=True, action='store_true', help='Bidirectional')
+    arg_parser.add_argument('--nof_lstms', type=int, default=2, help='Number of LSTM layers')
     return arg_parser
