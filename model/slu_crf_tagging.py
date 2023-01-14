@@ -1,8 +1,10 @@
-#coding=utf8
+# coding=utf8
 import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn_utils
-from model.layers.ptrnet import PointerNet
+from torch import BoolTensor, FloatTensor, LongTensor
+from model.layers.crf import CRF
+
 
 class SLUTagging(nn.Module):
     def __init__(self, config):
@@ -18,27 +20,20 @@ class SLUTagging(nn.Module):
             batch_first=True,
         )
         self.dropout_layer = nn.Dropout(p=config.dropout)
-        self.output_layer = TaggingFNNDecoder(config.hidden_size, config.num_tags, config.tag_pad_idx)
-        self.pointer_net = PointerNet(config.embed_size,
-                   config.hidden_size,
-                   config.nof_lstms,
-                   config.dropout,
-                   config.bidir)
+        self.output_layer = TaggingCRFDecoder(config.hidden_size, config.num_tags, config.tag_pad_idx)
 
     def forward(self, batch):
         tag_ids = batch.tag_ids # (tensor) bs * S, where S is the longest sequence length
         tag_mask = batch.tag_mask # (tensor) bs * S
         input_ids = batch.input_ids # (tensor) bs * S
-        # lengths = batch.lengths # (list) len = bs
+        lengths = batch.lengths # (list) len = bs
 
         embed = self.word_embed(input_ids) # (tensor) bs * S * 768
-        ptr_out = self.pointer_net(embed)
-        # packed_inputs = rnn_utils.pack_padded_sequence(embed, lengths, batch_first=True, enforce_sorted=True)
-        # packed_rnn_out, h_t_c_t = self.rnn(packed_inputs)  # bsize x seqlen x dim
-        # rnn_out, unpacked_len = rnn_utils.pad_packed_sequence(packed_rnn_out, batch_first=True)
+        packed_inputs = rnn_utils.pack_padded_sequence(embed, lengths, batch_first=True, enforce_sorted=True)
+        packed_rnn_out, h_t_c_t = self.rnn(packed_inputs)  # bsize x seqlen x dim
+        rnn_out, unpacked_len = rnn_utils.pad_packed_sequence(packed_rnn_out, batch_first=True)
         # rnn_out is shaped like bs * S * hidden_size
-        out = ptr_out # can modify this out later
-        hiddens = self.dropout_layer(out) # bs * S * hidden_size
+        hiddens = self.dropout_layer(rnn_out) # bs * S * hidden_size
         tag_output = self.output_layer(hiddens, tag_mask, tag_ids) # 2-tuple of length batchsize
         return tag_output
 
@@ -49,7 +44,7 @@ class SLUTagging(nn.Module):
         prob = output[0]
         predictions = []
         for i in range(batch_size):
-            pred = torch.argmax(prob[i], dim=-1).cpu().tolist()
+            pred = prob[i]
             pred_tuple = []
             idx_buff, tag_buff, pred_tags = [], [], []
             pred = pred[: len(batch.utt[i])]
@@ -79,18 +74,22 @@ class SLUTagging(nn.Module):
             return predictions, labels, loss.cpu().item()
 
 
-class TaggingFNNDecoder(nn.Module):
+class TaggingCRFDecoder(nn.Module):
     def __init__(self, input_size, num_tags, pad_id):
-        super(TaggingFNNDecoder, self).__init__()
+        super(TaggingCRFDecoder, self).__init__()
         self.num_tags = num_tags
         self.output_layer = nn.Linear(input_size, num_tags)
         self.loss_fct = nn.CrossEntropyLoss(ignore_index=pad_id)
+        self.crf = CRF(num_tags)
 
     def forward(self, hiddens, mask, labels=None):
         logits = self.output_layer(hiddens)
         logits += (1 - mask).unsqueeze(-1).repeat(1, 1, self.num_tags) * -1e32
-        prob = torch.softmax(logits, dim=-1)
+        mask = mask.byte()
+        crf_pred = self.crf.viterbi_decode(logits, mask) # list(len=32) of list(len=S) the values are predicted tags
         if labels is not None:
+            crf_out = self.crf(logits, labels, mask)
+            crf_loss = torch.mean(-crf_out)
             loss = self.loss_fct(logits.view(-1, logits.shape[-1]), labels.view(-1))
-            return prob, loss
-        return (prob,)
+            return crf_pred, crf_loss
+        return (crf_pred,)
