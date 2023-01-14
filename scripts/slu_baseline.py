@@ -42,6 +42,7 @@ if args.testing:
     check_point = torch.load(open(args.model_path, "rb"), map_location=device)
     model.load_state_dict(check_point["model"])
     print("Load saved model from root path")
+    print(model)
 
 
 def set_optimizer(model, args):

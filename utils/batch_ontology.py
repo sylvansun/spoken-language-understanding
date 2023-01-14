@@ -17,6 +17,7 @@ def from_example_list(args, ex_list, device="cpu", train=True):
     batch.input_ids = torch.tensor(input_ids, dtype=torch.long, device=device)
     # print(batch.input_ids.shape)
     batch.lengths = input_lens
+    batch.did = [ex.did for ex in ex_list]
 
     if train:
         batch.labels = [ex.slotvalue for ex in ex_list]
@@ -29,7 +30,8 @@ def from_example_list(args, ex_list, device="cpu", train=True):
     else:
         batch.labels = None
         batch.tag_ids = None
-        batch.tag_mask = None
+        tag_mask = [[1] * len(ex.input_idx) + [0] * (max_len - len(ex.input_idx)) for ex in ex_list]
+        batch.tag_mask = torch.tensor(tag_mask, dtype=torch.float, device=device)
     return batch
 
 

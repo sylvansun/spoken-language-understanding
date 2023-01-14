@@ -39,7 +39,7 @@ class SLUTagging(nn.Module):
         input_ids = batch.input_ids  # (tensor) bs * S
         lengths = batch.lengths  # (list) len = bs
         utt = batch.utt  # (list of str) len = bs
-        B, S = tag_ids.shape
+        B, S = tag_mask.shape
 
         encoding = self.tokenizer(utt, padding="max_length", truncation=True, max_length=S)
         bert_input_ids = torch.tensor(encoding["input_ids"]).to(device=self.device, dtype=torch.long)
@@ -62,7 +62,8 @@ class SLUTagging(nn.Module):
         projection = self.config.projection.projection
         batch_size = len(batch)
         labels = batch.labels
-        prob, loss = self.forward(batch)
+        output = self.forward(batch)
+        prob = output[0]
         predictions = []
         for i in range(batch_size):
             if self.config.crf:
@@ -71,6 +72,8 @@ class SLUTagging(nn.Module):
                 pred = torch.argmax(prob[i], dim=-1).cpu().tolist()
             pred_tuple = []
             idx_buff, tag_buff, pred_tags = [], [], []
+            # print(pred)
+            # print(len(batch.utt[i]))
             pred = pred[: len(batch.utt[i])]
             for idx, tid in enumerate(pred):
                 tag = label_vocab.convert_idx_to_tag(tid)
@@ -97,7 +100,11 @@ class SLUTagging(nn.Module):
                 if projected is not None:
                     pred_tuple.append(f"{slot}-{projected}")
             predictions.append(pred_tuple)
-        return predictions, labels, loss.cpu().item()
+        if len(output) == 1:
+            return predictions
+        else:
+            loss = output[1]
+            return predictions, labels, loss.cpu().item()
 
 
 class TaggingFNNDecoder(nn.Module):
@@ -125,4 +132,4 @@ class TaggingFNNDecoder(nn.Module):
             else:
                 loss = self.loss_fct(logits.view(-1, logits.shape[-1]), labels.view(-1))
             return prob, loss
-        return prob
+        return (prob,)

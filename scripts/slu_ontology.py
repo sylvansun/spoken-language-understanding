@@ -1,5 +1,5 @@
 # coding=utf8
-import sys, os, time, gc
+import sys, os, time, gc, json
 from torch.optim import Adam
 
 install_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -36,9 +36,14 @@ args.num_tags = Example.label_vocab.num_tags
 args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
 args.projection = projection
 
-print("num_tags", args.num_tags)
+
 model = SLUTagging(args).to(device)
 Example.word2vec.load_embeddings(model.word_embed, Example.word_vocab, device=device)
+if args.testing:
+    check_point = torch.load(open(args.model_path, "rb"), map_location=device)
+    model.load_state_dict(check_point["model"])
+    print("Load saved model from root path")
+
 
 
 def set_optimizer(model, args):
@@ -68,6 +73,26 @@ def decode(choice):
     gc.collect()
     return metrics, total_loss / count
 
+def predict():
+    model.eval()
+    test_path = os.path.join(args.dataroot, "test_unlabelled.json")
+    test_dataset = Example.load_dataset(test_path)
+    predictions = {}
+    with torch.no_grad():
+        for i in range(0, len(test_dataset), args.batch_size):
+            cur_dataset = test_dataset[i : i + args.batch_size]
+            current_batch = from_example_list(args, cur_dataset, device, train=False)
+            pred = model.decode(Example.label_vocab, current_batch)
+            for pi, p in enumerate(pred):
+                did = current_batch.did[pi]
+                predictions[did] = p
+    test_json = json.load(open(test_path, "r"))
+    ptr = 0
+    for ei, example in enumerate(test_json):
+        for ui, utt in enumerate(example):
+            utt["pred"] = [pred.split("-") for pred in predictions[f"{ei}-{ui}"]]
+            ptr += 1
+    json.dump(test_json, open(os.path.join(args.dataroot, "prediction.json"), "w"), indent=4, ensure_ascii=False)
 
 if not args.testing:
     num_training_steps = ((len(train_dataset) + args.batch_size - 1) // args.batch_size) * args.max_epoch
@@ -146,6 +171,7 @@ else:
     start_time = time.time()
     metrics, dev_loss = decode("dev")
     dev_acc, dev_fscore = metrics["acc"], metrics["fscore"]
+    predict()
     print(
         "Evaluation costs %.2fs ; Dev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)"
         % (

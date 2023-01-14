@@ -15,20 +15,18 @@ class Example:
 
     @classmethod
     def load_dataset(cls, data_path, is_train=False):
-        datas = json.load(open(data_path, "r"))
+        dataset = json.load(open(data_path, "r"))
         examples = []
-        for data in datas:
-            for utt in data:
-                ex = cls(utt)
+        for di, data in enumerate(dataset):
+            for ui, utt in enumerate(data):
+                ex = cls(utt, did=f"{di}-{ui}", is_train=is_train)
                 examples.append(ex)
-                if is_train:
-                    ex = cls(utt, True)
-                    examples.append(ex)
         return examples
 
-    def __init__(self, ex: dict, is_train=False):
+    def __init__(self, ex: dict, is_train=False, did=None):
         super(Example, self).__init__()
         self.ex = ex
+        self.did = did
         if not is_train:
             self.utt = ex["asr_1best"]
         else:
