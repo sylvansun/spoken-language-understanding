@@ -1,18 +1,24 @@
-#coding=utf8
+# coding=utf8
 import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn_utils
 
-class SLUTagging(nn.Module):
 
+class SLUTagging(nn.Module):
     def __init__(self, config):
         super(SLUTagging, self).__init__()
         self.config = config
-        print('vocab_size',config.vocab_size)
-        print('embed_size',config.embed_size)
+        print("vocab_size", config.vocab_size)
+        print("embed_size", config.embed_size)
         self.cell = config.encoder_cell
         self.word_embed = nn.Embedding(config.vocab_size, config.embed_size, padding_idx=0)
-        self.rnn = getattr(nn, self.cell)(config.embed_size, config.hidden_size // 2, num_layers=config.num_layer, bidirectional=True, batch_first=True)
+        self.rnn = getattr(nn, self.cell)(
+            config.embed_size,
+            config.hidden_size // 2,
+            num_layers=config.num_layer,
+            bidirectional=True,
+            batch_first=True,
+        )
         self.dropout_layer = nn.Dropout(p=config.dropout)
         self.output_layer = TaggingFNNDecoder(config.hidden_size, config.num_tags, config.tag_pad_idx)
 
@@ -39,37 +45,36 @@ class SLUTagging(nn.Module):
             pred = torch.argmax(prob[i], dim=-1).cpu().tolist()
             pred_tuple = []
             idx_buff, tag_buff, pred_tags = [], [], []
-            pred = pred[:len(batch.utt[i])]
+            pred = pred[: len(batch.utt[i])]
             for idx, tid in enumerate(pred):
                 tag = label_vocab.convert_idx_to_tag(tid)
                 pred_tags.append(tag)
-                if (tag == 'O' or tag.startswith('B')) and len(tag_buff) > 0:
-                    slot = '-'.join(tag_buff[0].split('-')[1:])
-                    value = ''.join([batch.utt[i][j] for j in idx_buff])
+                if (tag == "O" or tag.startswith("B")) and len(tag_buff) > 0:
+                    slot = "-".join(tag_buff[0].split("-")[1:])
+                    value = "".join([batch.utt[i][j] for j in idx_buff])
                     idx_buff, tag_buff = [], []
                     projected = projection(slot.split("-")[-1], value)
                     if projected is not None:
-                        pred_tuple.append(f'{slot}-{projected}')
+                        pred_tuple.append(f"{slot}-{projected}")
 
-                    if tag.startswith('B'):
+                    if tag.startswith("B"):
                         idx_buff.append(idx)
                         tag_buff.append(tag)
-                elif tag.startswith('I') or tag.startswith('B'):
+                elif tag.startswith("I") or tag.startswith("B"):
                     idx_buff.append(idx)
                     tag_buff.append(tag)
             if len(tag_buff) > 0:
-                slot = '-'.join(tag_buff[0].split('-')[1:])
-                value = ''.join([batch.utt[i][j] for j in idx_buff])
+                slot = "-".join(tag_buff[0].split("-")[1:])
+                value = "".join([batch.utt[i][j] for j in idx_buff])
                 idx_buff, tag_buff = [], []
                 projected = projection(slot.split("-")[-1], value)
                 if projected is not None:
-                    pred_tuple.append(f'{slot}-{projected}')
+                    pred_tuple.append(f"{slot}-{projected}")
             predictions.append(pred_tuple)
         return predictions, labels, loss.cpu().item()
 
 
 class TaggingFNNDecoder(nn.Module):
-
     def __init__(self, input_size, num_tags, pad_id):
         super(TaggingFNNDecoder, self).__init__()
         self.num_tags = num_tags

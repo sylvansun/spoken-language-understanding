@@ -6,10 +6,12 @@ install_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(_
 sys.path.append(install_path)
 from utils.args import init_args
 from utils.initialization import *
-from utils.example_denoise import Example
-from utils.batch_denoise import from_example_list
+from utils.example_combined import Example
+from utils.batch_ontology import from_example_list
 from utils.vocab import PAD
-from model.slu_denoise_tagging import SLUTagging
+from utils.ontology import OntologyProjection
+from model.slu_combined_tagging import SLUTagging
+from model.layers.crf import CRF
 
 # initialization params, output path, logger, random seed and torch.device
 args = init_args(sys.argv[1:])
@@ -23,15 +25,17 @@ start_time = time.time()
 train_path = os.path.join(args.dataroot, "train.json")
 dev_path = os.path.join(args.dataroot, "development.json")
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
-train_dataset = Example.load_dataset(train_path)
-dev_dataset = Example.load_dataset(dev_path)
+train_dataset = Example.load_dataset(train_path, True)
+dev_dataset = Example.load_dataset(dev_path, False)
 print("Load dataset and database finished, cost %.4fs ..." % (time.time() - start_time))
 print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)))
+projection = OntologyProjection(args.dataroot)
 
 args.vocab_size = Example.word_vocab.vocab_size
 args.pad_idx = Example.word_vocab[PAD]
 args.num_tags = Example.label_vocab.num_tags
 args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
+args.projection = projection
 
 print("num_tags", args.num_tags)
 model = SLUTagging(args).to(device)
@@ -56,16 +60,11 @@ def decode(choice):
             cur_dataset = dataset[i : i + args.batch_size]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
             pred, label, loss = model.decode(Example.label_vocab, current_batch)
-            for j in range(len(current_batch)):
-                if any([l.split("-")[-1] not in current_batch.utt[j] for l in pred[j]]):
-                    print(current_batch.utt[j], pred[j], label[j])
             predictions.extend(pred)
             labels.extend(label)
             total_loss += loss
             count += 1
         metrics = Example.evaluator.acc(predictions, labels)
-    torch.cuda.empty_cache()
-    gc.collect()
     return metrics, total_loss / count
 
 
@@ -94,8 +93,6 @@ if not args.testing:
         print(
             "Training: \tEpoch: %d\tTime: %.4f\tTraining Loss: %.4f" % (i, time.time() - start_time, epoch_loss / count)
         )
-        torch.cuda.empty_cache()
-        gc.collect()
 
         start_time = time.time()
         metrics, dev_loss = decode("dev")
@@ -124,7 +121,7 @@ if not args.testing:
                     "model": model.state_dict(),
                     "optim": optimizer.state_dict(),
                 },
-                open("model.bin", "wb"),
+                open(args.model_path, "wb"),
             )
             print(
                 "NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)"

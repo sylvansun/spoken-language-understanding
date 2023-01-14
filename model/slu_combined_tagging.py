@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import torch.nn.utils.rnn as rnn_utils
 from transformers import BertModel, BertTokenizer, logging
 from utils.initialization import set_torch_device
+from model.layers.crf import CRF
 
 logging.set_verbosity_error()
 
@@ -30,7 +31,7 @@ class SLUTagging(nn.Module):
         self.tokenizer = BertTokenizer.from_pretrained("bert-base-chinese")
         self.bert = BertModel.from_pretrained("bert-base-chinese")
         self.dropout_layer = nn.Dropout(p=config.dropout)
-        self.output_layer = TaggingFNNDecoder(config.hidden_size, config.num_tags, config.tag_pad_idx)
+        self.output_layer = TaggingFNNDecoder(config.hidden_size, config.num_tags, config.tag_pad_idx, config.crf)
 
     def forward(self, batch):
         tag_ids = batch.tag_ids  # (tensor) bs * S, where S is the longest sequence length
@@ -58,13 +59,16 @@ class SLUTagging(nn.Module):
         return tag_output
 
     def decode(self, label_vocab, batch):
+        projection = self.config.projection.projection
         batch_size = len(batch)
         labels = batch.labels
-        output = self.forward(batch)
-        prob = output[0]
+        prob, loss = self.forward(batch)
         predictions = []
         for i in range(batch_size):
-            pred = torch.argmax(prob[i], dim=-1).cpu().tolist()
+            if self.config.crf:
+                pred = prob[i]
+            else:
+                pred = torch.argmax(prob[i], dim=-1).cpu().tolist()
             pred_tuple = []
             idx_buff, tag_buff, pred_tags = [], [], []
             pred = pred[: len(batch.utt[i])]
@@ -75,7 +79,10 @@ class SLUTagging(nn.Module):
                     slot = "-".join(tag_buff[0].split("-")[1:])
                     value = "".join([batch.utt[i][j] for j in idx_buff])
                     idx_buff, tag_buff = [], []
-                    pred_tuple.append(f"{slot}-{value}")
+                    projected = projection(slot.split("-")[-1], value)
+                    if projected is not None:
+                        pred_tuple.append(f"{slot}-{projected}")
+
                     if tag.startswith("B"):
                         idx_buff.append(idx)
                         tag_buff.append(tag)
@@ -85,27 +92,37 @@ class SLUTagging(nn.Module):
             if len(tag_buff) > 0:
                 slot = "-".join(tag_buff[0].split("-")[1:])
                 value = "".join([batch.utt[i][j] for j in idx_buff])
-                pred_tuple.append(f"{slot}-{value}")
+                idx_buff, tag_buff = [], []
+                projected = projection(slot.split("-")[-1], value)
+                if projected is not None:
+                    pred_tuple.append(f"{slot}-{projected}")
             predictions.append(pred_tuple)
-        if len(output) == 1:
-            return predictions
-        else:
-            loss = output[1]
-            return predictions, labels, loss.cpu().item()
+        return predictions, labels, loss.cpu().item()
 
 
 class TaggingFNNDecoder(nn.Module):
-    def __init__(self, input_size, num_tags, pad_id):
+    def __init__(self, input_size, num_tags, pad_id, use_crf):
         super(TaggingFNNDecoder, self).__init__()
+        self.use_crf = use_crf
         self.num_tags = num_tags
         self.output_layer = nn.Linear(input_size, num_tags)
         self.loss_fct = nn.CrossEntropyLoss(ignore_index=pad_id)
+        if use_crf:
+            self.crf = CRF(num_tags)
 
     def forward(self, hiddens, mask, labels=None):
         logits = self.output_layer(hiddens)
         logits += (1 - mask).unsqueeze(-1).repeat(1, 1, self.num_tags) * -1e32
-        prob = torch.softmax(logits, dim=-1)
+        if self.use_crf:
+            mask = mask.byte()
+            prob = self.crf.viterbi_decode(logits, mask)  # list(len=32) of list(len=S) the values are predicted tags
+        else:
+            prob = torch.softmax(logits, dim=-1)
         if labels is not None:
-            loss = self.loss_fct(logits.view(-1, logits.shape[-1]), labels.view(-1))
+            if self.use_crf:
+                crf_out = self.crf(logits, labels, mask)
+                loss = torch.mean(-crf_out)
+            else:
+                loss = self.loss_fct(logits.view(-1, logits.shape[-1]), labels.view(-1))
             return prob, loss
-        return (prob,)
+        return prob

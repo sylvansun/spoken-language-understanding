@@ -8,7 +8,7 @@ EOS = "</s>"
 
 
 class Vocab:
-    def __init__(self, padding=False, unk=False, min_freq=1, filepath=None):
+    def __init__(self, padding=False, unk=False, min_freq=1, filepath=None, use_manual_transcript=True):
         super(Vocab, self).__init__()
         self.word2id = dict()
         self.id2word = dict()
@@ -20,15 +20,18 @@ class Vocab:
             self.word2id[UNK], self.id2word[idx] = idx, UNK
 
         if filepath is not None:
-            self.from_train(filepath, min_freq=min_freq)
+            self.from_train(filepath, min_freq=min_freq, use_manual_transcript=use_manual_transcript)
 
-    def from_train(self, filepath, min_freq=1):
+    def from_train(self, filepath, min_freq=1, use_manual_transcript=True):
         with open(filepath, "r") as f:
             trains = json.load(f)
         word_freq = {}
         for data in trains:
             for utt in data:
-                text = utt["manual_transcript"]
+                if use_manual_transcript:
+                    text = utt["manual_transcript"]
+                else:
+                    text = utt["asr_1best"]
                 for char in text:
                     word_freq[char] = word_freq.get(char, 0) + 1
         for word in word_freq:

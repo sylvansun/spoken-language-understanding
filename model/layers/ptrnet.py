@@ -9,11 +9,7 @@ class Encoder(nn.Module):
     Encoder class for Pointer-Net
     """
 
-    def __init__(self, embedding_dim,
-                 hidden_dim,
-                 n_layers,
-                 dropout,
-                 bidir):
+    def __init__(self, embedding_dim, hidden_dim, n_layers, dropout, bidir):
         """
         Initiate Encoder
 
@@ -25,21 +21,16 @@ class Encoder(nn.Module):
         """
 
         super(Encoder, self).__init__()
-        self.hidden_dim = hidden_dim//2 if bidir else hidden_dim
-        self.n_layers = n_layers*2 if bidir else n_layers
+        self.hidden_dim = hidden_dim // 2 if bidir else hidden_dim
+        self.n_layers = n_layers * 2 if bidir else n_layers
         self.bidir = bidir
-        self.lstm = nn.LSTM(embedding_dim,
-                            self.hidden_dim,
-                            n_layers,
-                            dropout=dropout,
-                            bidirectional=bidir)
+        self.lstm = nn.LSTM(embedding_dim, self.hidden_dim, n_layers, dropout=dropout, bidirectional=bidir)
 
         # Used for propagating .cuda() command
         self.h0 = Parameter(torch.zeros(1), requires_grad=False)
         self.c0 = Parameter(torch.zeros(1), requires_grad=False)
 
-    def forward(self, embedded_inputs,
-                hidden):
+    def forward(self, embedded_inputs, hidden):
         """
         Encoder - Forward-pass
 
@@ -65,12 +56,8 @@ class Encoder(nn.Module):
         batch_size = embedded_inputs.size(0)
 
         # Reshaping (Expanding)
-        h0 = self.h0.unsqueeze(0).unsqueeze(0).repeat(self.n_layers,
-                                                      batch_size,
-                                                      self.hidden_dim)
-        c0 = self.h0.unsqueeze(0).unsqueeze(0).repeat(self.n_layers,
-                                                      batch_size,
-                                                      self.hidden_dim)
+        h0 = self.h0.unsqueeze(0).unsqueeze(0).repeat(self.n_layers, batch_size, self.hidden_dim)
+        c0 = self.h0.unsqueeze(0).unsqueeze(0).repeat(self.n_layers, batch_size, self.hidden_dim)
 
         return h0, c0
 
@@ -80,8 +67,7 @@ class Attention(nn.Module):
     Attention model for Pointer-Net
     """
 
-    def __init__(self, input_dim,
-                 hidden_dim):
+    def __init__(self, input_dim, hidden_dim):
         """
         Initiate Attention
 
@@ -97,16 +83,14 @@ class Attention(nn.Module):
         self.input_linear = nn.Linear(input_dim, hidden_dim)
         self.context_linear = nn.Conv1d(input_dim, hidden_dim, 1, 1)
         self.V = Parameter(torch.FloatTensor(hidden_dim), requires_grad=True)
-        self._inf = Parameter(torch.FloatTensor([float('-inf')]), requires_grad=False)
+        self._inf = Parameter(torch.FloatTensor([float("-inf")]), requires_grad=False)
         self.tanh = tanh
         self.softmax = nn.Softmax(dim=1)
 
         # Initialize vector V
         nn.init.uniform_(self.V, -1, 1)
 
-    def forward(self, input,
-                context,
-                mask):
+    def forward(self, input, context, mask):
         """
         Attention - Forward-pass
 
@@ -144,8 +128,7 @@ class Decoder(nn.Module):
     Decoder model for Pointer-Net
     """
 
-    def __init__(self, embedding_dim,
-                 hidden_dim):
+    def __init__(self, embedding_dim, hidden_dim):
         """
         Initiate Decoder
 
@@ -166,10 +149,7 @@ class Decoder(nn.Module):
         self.mask = Parameter(torch.ones(1), requires_grad=False)
         self.runner = Parameter(torch.zeros(1), requires_grad=False)
 
-    def forward(self, embedded_inputs,
-                decoder_input,
-                hidden,
-                context):
+    def forward(self, embedded_inputs, decoder_input, hidden, context):
         """
         Decoder - Forward-pass
 
@@ -240,7 +220,7 @@ class Decoder(nn.Module):
             one_hot_pointers = (runner == indices.unsqueeze(1).expand(-1, outs.size()[1])).float()
 
             # Update mask to ignore seen indices
-            mask  = mask * (1 - one_hot_pointers)
+            mask = mask * (1 - one_hot_pointers)
 
             # Get embedded inputs by max indices
             embedding_mask = one_hot_pointers.unsqueeze(2).expand(-1, -1, self.embedding_dim).to(torch.bool)
@@ -262,11 +242,7 @@ class PointerNet(nn.Module):
     Pointer-Net
     """
 
-    def __init__(self, embedding_dim,
-                 hidden_dim,
-                 lstm_layers,
-                 dropout,
-                 bidir=False):
+    def __init__(self, embedding_dim, hidden_dim, lstm_layers, dropout, bidir=False):
         """
         Initiate Pointer-Net
 
@@ -280,11 +256,7 @@ class PointerNet(nn.Module):
         super(PointerNet, self).__init__()
         self.embedding_dim = embedding_dim
         self.bidir = bidir
-        self.encoder = Encoder(embedding_dim,
-                               hidden_dim,
-                               lstm_layers,
-                               dropout,
-                               bidir)
+        self.encoder = Encoder(embedding_dim, hidden_dim, lstm_layers, dropout, bidir)
         self.decoder = Decoder(embedding_dim, hidden_dim)
         self.decoder_input0 = Parameter(torch.FloatTensor(embedding_dim), requires_grad=False)
 
@@ -302,17 +274,15 @@ class PointerNet(nn.Module):
         batch_size = embedded_inputs.size(0)
         decoder_input0 = self.decoder_input0.unsqueeze(0).expand(batch_size, -1)
         encoder_hidden0 = self.encoder.init_hidden(embedded_inputs)
-        encoder_outputs, encoder_hidden = self.encoder(embedded_inputs,
-                                                       encoder_hidden0)
+        encoder_outputs, encoder_hidden = self.encoder(embedded_inputs, encoder_hidden0)
         if self.bidir:
-            decoder_hidden0 = (torch.cat([_ for _ in encoder_hidden[0][-2:]], dim=-1),
-                               torch.cat([_ for _ in encoder_hidden[1][-2:]], dim=-1))
+            decoder_hidden0 = (
+                torch.cat([_ for _ in encoder_hidden[0][-2:]], dim=-1),
+                torch.cat([_ for _ in encoder_hidden[1][-2:]], dim=-1),
+            )
         else:
-            decoder_hidden0 = (encoder_hidden[0][-1],
-                               encoder_hidden[1][-1])
-        (outputs, pointers), (decoder_h, decoder_c) = self.decoder(embedded_inputs,
-                                                           decoder_input0,
-                                                           decoder_hidden0,
-                                                           encoder_outputs)
-        return  decoder_h
-
+            decoder_hidden0 = (encoder_hidden[0][-1], encoder_hidden[1][-1])
+        (outputs, pointers), (decoder_h, decoder_c) = self.decoder(
+            embedded_inputs, decoder_input0, decoder_hidden0, encoder_outputs
+        )
+        return decoder_h

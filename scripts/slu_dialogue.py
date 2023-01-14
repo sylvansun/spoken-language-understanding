@@ -25,15 +25,15 @@ start_time = time.time()
 train_path = os.path.join(args.dataroot, "train.json")
 dev_path = os.path.join(args.dataroot, "development.json")
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
-train_dataset = Example.load_dataset(train_path) # a list (length = 5119) with utils.example.Example object
+train_dataset = Example.load_dataset(train_path)  # a list (length = 5119) with utils.example.Example object
 dev_dataset = Example.load_dataset(dev_path)
 print("Load dataset and database finished, cost %.4fs ..." % (time.time() - start_time))
 print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)))
 
-args.vocab_size = Example.word_vocab.vocab_size #default 1741
-args.pad_idx = Example.word_vocab[PAD] #default 0
-args.num_tags = Example.label_vocab.num_tags #default 74
-args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD) #default 0
+args.vocab_size = Example.word_vocab.vocab_size  # default 1741
+args.pad_idx = Example.word_vocab[PAD]  # default 0
+args.num_tags = Example.label_vocab.num_tags  # default 74
+args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)  # default 0
 
 
 N_ensemble = 4
@@ -42,8 +42,8 @@ models = [SLUTagging(args).to(device) for _ in range(N_ensemble)]
 Example.word2vec.load_embeddings(models[0].word_embed, Example.word_vocab, device=device)
 
 if args.testing:
-    check_point = torch.load(open("model.bin", "rb"), map_location=device)
-    models[N_ensemble-1].load_state_dict(check_point["model"])
+    check_point = torch.load(open(args.model_path, "rb"), map_location=device)
+    models[N_ensemble - 1].load_state_dict(check_point["model"])
     print("Load saved model from root path")
 
 
@@ -56,7 +56,7 @@ def set_optimizer(model, args):
 
 def decode(choice):
     assert choice in ["train", "dev"]
-    models[N_ensemble-1].eval()
+    models[N_ensemble - 1].eval()
     dataset = train_dataset if choice == "train" else dev_dataset
     predictions, labels = [], []
     total_loss, count = 0, 0
@@ -64,7 +64,7 @@ def decode(choice):
         for i in range(0, len(dataset), args.batch_size):
             cur_dataset = dataset[i : i + args.batch_size]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
-            pred, label, loss = models[N_ensemble-1].decode(Example.label_vocab, current_batch)
+            pred, label, loss = models[N_ensemble - 1].decode(Example.label_vocab, current_batch)
             for j in range(len(current_batch)):
                 if any([l.split("-")[-1] not in current_batch.utt[j] for l in pred[j]]):
                     print(current_batch.utt[j], pred[j], label[j])
@@ -79,7 +79,7 @@ def decode(choice):
 
 
 def predict():
-    models[N_ensemble-1].eval()
+    models[N_ensemble - 1].eval()
     test_path = os.path.join(args.dataroot, "test_unlabelled.json")
     test_dataset = Example.load_dataset(test_path)
     predictions = {}
@@ -87,7 +87,7 @@ def predict():
         for i in range(0, len(test_dataset), args.batch_size):
             cur_dataset = test_dataset[i : i + args.batch_size]
             current_batch = from_example_list(args, cur_dataset, device, train=False)
-            pred = models[N_ensemble-1].decode(Example.label_vocab, current_batch)
+            pred = models[N_ensemble - 1].decode(Example.label_vocab, current_batch)
             for pi, p in enumerate(pred):
                 did = current_batch.did[pi]
                 predictions[did] = p
@@ -113,7 +113,7 @@ if not args.testing:
         for md in range(N_ensemble):
             models[md].train()
         count = 0
-        for j in range(0, nsamples-step_size, step_size):
+        for j in range(0, nsamples - step_size, step_size):
             cur_dataset = [train_dataset[k] for k in train_index[j : j + step_size]]
             datas = [[] for _ in range(N_ensemble)]
             for model_id in range(N_ensemble):
@@ -124,14 +124,14 @@ if not args.testing:
                 output, loss = models[k](batches[k])
                 losses[k] = loss
                 if k:
-                    loss = loss/2 + losses[k-1]/2
+                    loss = loss / 2 + losses[k - 1] / 2
                     losses[k] = loss
                 epoch_loss += loss.item()
             loss.backward()
             for k in range(N_ensemble):
                 optimizers[k].step()
                 optimizers[k].zero_grad()
-                
+
             count += 1
         print(
             "Training: \tEpoch: %d\tTime: %.4f\tTraining Loss: %.4f" % (i, time.time() - start_time, epoch_loss / count)
@@ -163,10 +163,10 @@ if not args.testing:
             torch.save(
                 {
                     "epoch": i,
-                    "model": models[N_ensemble-1].state_dict(),
-                    "optim": optimizers[N_ensemble-1].state_dict(),
+                    "model": models[N_ensemble - 1].state_dict(),
+                    "optim": optimizers[N_ensemble - 1].state_dict(),
                 },
-                open("model.bin", "wb"),
+                open(args.model_path, "wb"),
             )
             print(
                 "NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)"

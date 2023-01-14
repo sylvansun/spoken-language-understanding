@@ -1,8 +1,8 @@
-#-*- coding:utf-8 -*-
+# -*- coding:utf-8 -*-
 import torch
 
 
-def from_example_list(args, ex_list, device='cpu', train=True):
+def from_example_list(args, ex_list, device="cpu", train=True):
     ex_list = sorted(ex_list, key=lambda x: len(x.input_idx), reverse=True)
     batch = Batch(ex_list, device)
     pad_idx = args.pad_idx
@@ -13,11 +13,11 @@ def from_example_list(args, ex_list, device='cpu', train=True):
     input_lens = [len(ex.input_idx) for ex in ex_list]
     denoise_lens = [len(ex.denoise_idx) for ex in ex_list]
     for i in range(len(input_lens)):
-        input_lens[i] = max(input_lens[i],denoise_lens[i])
+        input_lens[i] = max(input_lens[i], denoise_lens[i])
     # print(input_lens)
     max_len = max(input_lens)
     input_ids = [ex.input_idx + [pad_idx] * (max_len - len(ex.input_idx)) for ex in ex_list]
-    
+
     batch.input_ids = torch.tensor(input_ids, dtype=torch.long, device=device)
     # print(batch.input_ids.shape)
     batch.lengths = input_lens
@@ -40,8 +40,7 @@ def from_example_list(args, ex_list, device='cpu', train=True):
     return batch
 
 
-class Batch():
-
+class Batch:
     def __init__(self, examples, device):
         super(Batch, self).__init__()
 

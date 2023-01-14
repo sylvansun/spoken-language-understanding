@@ -14,11 +14,11 @@ class Example:
         cls.label_vocab = LabelVocab(root)
 
     @classmethod
-    def load_dataset(cls, data_path, recall = 4):
+    def load_dataset(cls, data_path, recall=4):
         dataset = json.load(open(data_path, "r"))
         # print(len(dataset))
         examples = []
-        for di, data in enumerate(dataset): #data is the sentences from one person
+        for di, data in enumerate(dataset):  # data is the sentences from one person
             ex = None
             for ui, utt in enumerate(data):
                 ex = cls(utt, f"{di}-{ui}")
@@ -39,7 +39,7 @@ class Example:
             # print("label:", label)
             act_slot = f"{label[0]}-{label[1]}"
             # print(act_slot)
-            if len(label) == 3: # Actually this is always true
+            if len(label) == 3:  # Actually this is always true
                 # print(label[2])
                 self.slot[act_slot] = label[2]
         self.tags = ["O"] * len(self.utt)
@@ -53,6 +53,6 @@ class Example:
                 self.tags[bidx] = f"B-{slot}"
         self.slotvalue = [f"{slot}-{value}" for slot, value in self.slot.items()]
         self.input_idx = [Example.word_vocab[c] for c in self.utt]
-        l = Example.label_vocab # utils.vocab.LabelVocab object
+        l = Example.label_vocab  # utils.vocab.LabelVocab object
         # print(l)
         self.tag_id = [l.convert_tag_to_idx(tag) for tag in self.tags]

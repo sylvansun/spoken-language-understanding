@@ -23,18 +23,18 @@ class SLUTagging(nn.Module):
         self.output_layer = TaggingCRFDecoder(config.hidden_size, config.num_tags, config.tag_pad_idx)
 
     def forward(self, batch):
-        tag_ids = batch.tag_ids # (tensor) bs * S, where S is the longest sequence length
-        tag_mask = batch.tag_mask # (tensor) bs * S
-        input_ids = batch.input_ids # (tensor) bs * S
-        lengths = batch.lengths # (list) len = bs
+        tag_ids = batch.tag_ids  # (tensor) bs * S, where S is the longest sequence length
+        tag_mask = batch.tag_mask  # (tensor) bs * S
+        input_ids = batch.input_ids  # (tensor) bs * S
+        lengths = batch.lengths  # (list) len = bs
 
-        embed = self.word_embed(input_ids) # (tensor) bs * S * 768
+        embed = self.word_embed(input_ids)  # (tensor) bs * S * 768
         packed_inputs = rnn_utils.pack_padded_sequence(embed, lengths, batch_first=True, enforce_sorted=True)
         packed_rnn_out, h_t_c_t = self.rnn(packed_inputs)  # bsize x seqlen x dim
         rnn_out, unpacked_len = rnn_utils.pad_packed_sequence(packed_rnn_out, batch_first=True)
         # rnn_out is shaped like bs * S * hidden_size
-        hiddens = self.dropout_layer(rnn_out) # bs * S * hidden_size
-        tag_output = self.output_layer(hiddens, tag_mask, tag_ids) # 2-tuple of length batchsize
+        hiddens = self.dropout_layer(rnn_out)  # bs * S * hidden_size
+        tag_output = self.output_layer(hiddens, tag_mask, tag_ids)  # 2-tuple of length batchsize
         return tag_output
 
     def decode(self, label_vocab, batch):
@@ -86,7 +86,7 @@ class TaggingCRFDecoder(nn.Module):
         logits = self.output_layer(hiddens)
         logits += (1 - mask).unsqueeze(-1).repeat(1, 1, self.num_tags) * -1e32
         mask = mask.byte()
-        crf_pred = self.crf.viterbi_decode(logits, mask) # list(len=32) of list(len=S) the values are predicted tags
+        crf_pred = self.crf.viterbi_decode(logits, mask)  # list(len=32) of list(len=S) the values are predicted tags
         if labels is not None:
             crf_out = self.crf(logits, labels, mask)
             crf_loss = torch.mean(-crf_out)
