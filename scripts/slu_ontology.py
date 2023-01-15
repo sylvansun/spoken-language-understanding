@@ -6,8 +6,8 @@ install_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(_
 sys.path.append(install_path)
 from utils.args import init_args
 from utils.initialization import *
-from utils.example_ontology import Example
-from utils.batch_ontology import from_example_list
+from utils.examples.ontology import Example
+from utils.batches.ontology import from_example_list
 from utils.vocab import PAD
 from utils.ontology import OntologyProjection
 from model.slu_ontology_tagging import SLUTagging

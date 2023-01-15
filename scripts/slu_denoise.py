@@ -6,8 +6,8 @@ install_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(_
 sys.path.append(install_path)
 from utils.args import init_args
 from utils.initialization import *
-from utils.example_denoise import Example
-from utils.batch_denoise import from_example_list
+from utils.examples.denoise import Example
+from utils.batches.denoise import from_example_list
 from utils.vocab import PAD
 from model.slu_denoise_tagging import SLUTagging
 

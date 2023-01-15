@@ -8,8 +8,8 @@ sys.path.append(install_path)
 
 from utils.args import init_args
 from utils.initialization import *
-from utils.example_dialogue import Example
-from utils.batch_dialogue import from_example_list
+from utils.examples.dialogue import Example
+from utils.batches.dialogue import from_example_list
 from utils.vocab import PAD
 from model.slu_dialogue_tagging import SLUTagging
 

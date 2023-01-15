@@ -7,8 +7,8 @@ sys.path.append(install_path)
 
 from utils.args import init_args
 from utils.initialization import *
-from utils.example import Example
-from utils.batch import from_example_list
+from utils.examples.baseline import Example
+from utils.batches.baseline import from_example_list
 from utils.vocab import PAD
 from model.slu_crf_tagging import SLUTagging
 
