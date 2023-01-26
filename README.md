@@ -1,13 +1,17 @@
-### 创建环境
+### Repo description
 
+Final project(Spoken Language Understanding) for course Natural Language Processing, 2022 Fall Semester.
+
+
+### Environment Creation
     conda create -n slu python=3.6
     source activate slu
     conda install pytorch pytorch-cuda=11.7 -c pytorch -c nvidia
     pip install transformers
-### 模型训练和测试
+### For TA: 模型训练和测试
   我们一共提交了两个模型，其中随canvas系统提交的模型model.bin是作业报告中Substitute+Denoise+RNN+CRF对应的模型，随jbox链接提交的模型model_combined_1.bin是作业报告中BertTRNN+CRF对应的模型（使用了Bert作为预训练模型，体积较大，需要从 [https://jbox.sjtu.edu.cn/l/V1tOYk](https://jbox.sjtu.edu.cn/l/V1tOYk) 下载模型并放置 `./` 目录下）。
   
-  
+
   model.bin的测试命令为：
   ```shell
   python scripts/slu_minimodel_best.py --device 1 --crf --testing 
@@ -29,7 +33,7 @@
   ```  
   除此之外，我们还保留并提供了实验过程中使用到的其他模型和对应的脚本，均可以在scripts文件夹下找到。
 
-### 代码说明
+### Code Description
 
 + `utils/args.py`:定义了所有涉及到的可选参数，如需改动某一参数可以在运行的时候将命令修改成
         
